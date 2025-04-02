@@ -1,0 +1,483 @@
+---
+title: "Midwest Project"
+author: "parimala"
+date: "2023-11-27"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+# Midwest dataset project by Parimala Anjanappa
+
+The Midwest dataset is a collection of socio-economic and demographic data of Midwest state counties of the United States.
+Motivated by the need to understand and address potential disparities that may exist among different racial groups within this region made me choose this dataset, which can give some insights into this topic.
+
+In this project, I aim to conduct a comprehensive analysis of demographic and socioeconomic data for counties in the Midwest region of the United States.
+The dataset, provides information on various factors, including population, race percentages, educational attainment, and poverty rates- which can help in understanding the complex interplay between demographic variables in the Midwest.
+
+Loading all required libraries:
+
+```{r}
+#loading libraries
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(broom)
+```
+
+# About the dataset
+
+The Midwest dataset is a collection of socio-economic and demographic data of Midwest state counties of the United States.
+Motivated by the need to understand and address potential disparities that may exist among different racial groups within this region made me choose this dataset, which can give some insights into this topic.
+
+Dataset in the form of a data frame with 437 rows and 28 variables. Each row represents a county, and the variables provide various demographic and socio-economic information for each county.
+
+
+```{r}
+data("midwest")
+df<-midwest
+colnames(midwest)
+```
+
+Here's a brief explanation of the key columns:
+
+-   PID: Unique identifier for each observation.
+
+-   county: Name of the county.
+
+-   state: State to which the county belongs.
+
+-   area: Area of the county.
+
+-   poptotal: Total population of the county.
+
+-   popdensity: Population density, calculated as the total population divided by the area.
+
+-   popwhite, popblack, popamerindian, popasian, popother: Population counts based on different racial groups.
+
+-   percwhite, percblack, percamerindan, percasian, percother: Percentage of the total population corresponding to different racial groups.
+
+-   popadults: Population count of adults.
+
+-   perchsd, percollege, percprof: Percentages of the population with a high school diploma, college degree, and professional degree, respectively.
+
+-   poppovertyknown: Population count for which poverty status is known.
+
+-   percpovertyknown: Percentage of the population for which poverty status is known.
+
+-   percbelowpoverty: Percentage of the population below the poverty line.
+
+-   percchildbelowpovert, percadultpoverty, percelderlypoverty: Percentages of children, adults, and elderly individuals below the poverty line.
+
+-   inmetro: Binary indicator (0 or 1) representing whether the county is in a metropolitan area.
+
+-   category: Categorical variable indicating the category of the county.
+
+This dataset provides a comprehensive snapshot of demographic and socio-economic features, allowing for in-depth analyses and insights into the characteristics of Midwest counties.
+
+
+
+# Basic EDA to understand the data
+Here I am trying to explore whether higher population or higher population density is associated with higher or lower poverty rates, or if there are disparities in education levels based on population density.
+
+### Population in midwest
+
+The total population is a fundamental demographic indicator that provides an overview of the size of the resident population in each state.
+
+Illinois has the highest total population among the listed states, followed by Ohio, Michigan, Indiana, and Wisconsin.
+```{r}
+total_population_by_state <- df %>%
+  group_by(state) %>%
+  summarise(total_population = sum(poptotal, na.rm = TRUE)) %>%
+  arrange(desc(total_population))
+print(total_population_by_state)
+```
+
+Illinois and Ohio have the largest population among the Midwest states, Indiana and Wyoming have the lowest
+
+```{r}
+ggplot(total_population_by_state, aes(x = state, y = total_population, fill = state)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%d", total_population)),
+            position = position_dodge(width = 0.9), vjust = -0.5, color = "black", size = 3) +
+  labs(title = "Total Population by State",
+       x = "State",
+       y = "Total Population")
+ 
+```
+
+### Population density in midwest
+
+Population density is a measure of the number of people living per unit of area, typically per square mile or square kilometer. 
+Ohio has the highest mean population density among the listed states, followed by Michigan, Illinois, Indiana, and Wisconsin. Ohio tends to have a higher concentration of people per unit of area compared to the other states in the dataset.
+```{r}
+popdensity_data <- df %>%
+  group_by(state) %>%
+  summarise(mean_popdensity = mean(popdensity, na.rm = TRUE)) %>%
+  arrange(desc(mean_popdensity))
+popdensity_data
+```
+
+
+```{r}
+# Bar plot for population density by state
+ggplot(popdensity_data, aes(x = state, y = mean_popdensity, fill = state)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.2f", mean_popdensity)),
+            position = position_dodge(width = 0.9), vjust = -0.5, color = "black", size = 3) +
+  labs(title = "Mean Population Density by State",
+       x = "State",
+       y = "Mean Population Density")
+
+```
+
+### Poverty in midwest
+
+```{r}
+ggplot(df, aes(x = state, y = percbelowpoverty, fill = state)) +
+  geom_bar(stat = "summary", fun = "mean", position = position_dodge2(width = 0.5)) +
+  geom_text(stat = "summary", aes(label = sprintf("%.1f%%", after_stat(y))),
+            position = position_dodge2(width = 0.8), vjust = -0.5, color = "black", size = 3) +
+  labs(title = "Average Percentage Below Poverty by State", x = "State", y = "Average Percentage Below Poverty")
+```
+
+### Poverty vs population and population density
+
+Explore the relationship between the percentage below poverty (percbelowpoverty) and both the total population (poptotal) and population density (popdensity).
+
+```{r}
+# Scatter plot for percbelowpoverty vs poptotal
+ggplot(df, aes(x = poptotal, y = percbelowpoverty)) +
+  geom_point() +
+  labs(title = "Percentage Below Poverty vs Total Population",
+       x = "Total Population",
+       y = "Percentage Below Poverty")
+
+# Scatter plot for percbelowpoverty vs popdensity
+ggplot(df, aes(x = popdensity, y = percbelowpoverty)) +
+  geom_point() +
+  labs(title = "Percentage Below Poverty vs Population Density",
+       x = "Population Density",
+       y = "Percentage Below Poverty")
+
+```
+
+#### Correlation 
+
+```{r}
+#correlation between poptotal and percbelowpoverty
+correlation_poptotal <- cor(df$poptotal, df$percbelowpoverty)
+correlation_poptotal
+```
+
+Correlation coefficient here is close to zero, meaning that changes in the total population are not associated with a consistent or meaningful linear change in the percentage below poverty.
+The negative sign suggests a weak negative correlation, but the magnitude is so small that the relationship is practically negligible.
+
+```{r}
+#correlation between popdensity and percbelowpoverty
+correlation_popdensity <- cor(df$popdensity, df$percbelowpoverty)
+correlation_popdensity
+
+```
+
+The correlation coefficient of approximately -0.0521 between popdensity and percbelowpoverty also indicates a very weak negative linear relationship.
+Similar to the correlation with poptotal, the value is close to zero, suggesting that there is little to no linear correlation between population density and the percentage below poverty.
+
+
+
+#### Linear modeling 
+```{r}
+lm_model_poptotal <- lm(percbelowpoverty ~ poptotal, data = df)
+summary(lm_model_poptotal)
+```
+
+The p-value for poptotal is high, indicating that changes in total population are not associated with statistically significant changes in the percentage below poverty
+
+```{r}
+lm_model_popdensity <- lm(percbelowpoverty ~ popdensity, data = df)
+summary(lm_model_popdensity)
+```
+
+The p-value for popdensity is not 0.277, indicating that changes in population density are not associated with statistically significant changes in the percentage below poverty.
+
+
+Given these findings, it does not appear that poptotal or popdensity are strong predictors of the percentage below the poverty line. On the other hand, we can see affect on race on poverty and education.
+
+
+# Exploring the Relationship Between Race and Socioeconomic Features in the Midwest
+
+## Basic EDA to understand the variations between different factors affecting Socioeconomic Features
+
+```{r}
+state_percblack <- df %>%
+  group_by(state) %>%
+  summarise(mean_percblack = mean(percblack, na.rm = TRUE)) %>%
+  arrange(desc(mean_percblack)) %>%
+  print()
+print(state_percblack)
+```
+-   Illinois (IL) has the highest mean percentage of Black population among the listed states, followed by Ohio (OH), Michigan (MI), Indiana (IN), and Wisconsin (WI).
+-   Wisconsin (WI) has the lowest mean percentage of Black population among the listed states.
+-   The differences in mean percentages suggest variations in the racial composition across states.
+Further analysis, such as correlation with other variables or comparison with socioeconomic factors, can provide insights into potential relationships and disparities.
+
+```{r}
+# Bar plot
+ggplot(state_percblack, aes(x = state, y = mean_percblack, fill = state)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.1f%%", mean_percblack)),
+            position = position_dodge(width = 0.9), vjust = -0.5, color = "black", size = 3) +
+  labs(title = "Mean Percentage of Black Population by State",
+       x = "State",
+       y = "Mean Percentage of Black Population")
+
+```
+
+
+
+For ease of analysis I have grouped race other than popblack and popwhite to other_race:
+So, there'll be popwhite poblack and otherrace to explore the socio economic features further
+```{r}
+#grouping races other than popwhite for future analysis
+df3 <- df%>%
+  mutate(other_race= percasian+percamerindan+percother)
+
+other_race_percpop <- df3 %>%
+  group_by(state) %>%
+  summarise(mean_other = mean(other_race, na.rm = TRUE)) %>%
+  arrange(desc(mean_other))
+print(other_race_percpop)
+```
+-   Wisconsin (WI) has the highest mean percentage of the "other" racial group among the listed states, followed by Michigan (MI), Illinois (IL), Ohio (OH), and Indiana (IN).
+-   Indiana (IN) has the lowest mean percentage of the "other" racial group among the listed states.
+
+```{r}
+ggplot(other_race_percpop, aes(x = state, y = mean_other, fill = state)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Percentage of Other Race Population by State",
+       x = "State",
+       y = "Mean Percentage of Other Race") +
+  theme_minimal()
+
+```
+
+Adding percblack to other race:
+
+```{r}
+df4 <- df%>%
+  mutate(others= percblack+percasian+percamerindan+percother)
+
+excluding_popwhite <- df4 %>%
+  group_by(state) %>%
+  summarise(mean_others_1 = mean(others, na.rm = TRUE)) %>%
+  arrange(desc(mean_others_1))
+print(excluding_popwhite)
+
+```
+```{r}
+ggplot(excluding_popwhite, aes(x = state, y = mean_others_1, fill = state)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Percentage excluding popwhite- Population by State",
+       x = "State",
+       y = "Mean Percentage  excluding popwhite") +
+  theme_minimal()
+
+```
+```{r}
+
+statewise_poverty <- df %>%
+  group_by(state) %>%
+  summarise(mean_percbelowpoverty = mean(percbelowpoverty, na.rm = TRUE)) %>%
+  arrange(desc(mean_percbelowpoverty)) 
+print(statewise_poverty)
+
+```
+-   Michigan (MI) has the highest mean percentage below the poverty line among the listed states, followed by Illinois (IL), Ohio (OH), Wisconsin (WI), and Indiana (IN).
+-   Indiana has the lowest mean percentage below the poverty line among the listed states.
+
+```{r}
+ggplot(statewise_poverty, aes(x = state, y = mean_percbelowpoverty, fill=state)) +
+  geom_bar(stat = "identity") +
+  labs(title = "State-wise Mean Percentage Below Poverty", x = "State", y = "Mean Percentage Below Poverty") +
+  theme_minimal()
+```
+
+## Hypothesis 1: Poverty vs Race
+
+"Racial disparity here is extreme, and it has also not always been that way. It is mutable," said Laura Dresser, associate director of COWS, a University of Wisconsin-Madison research institute, and author of the Wisconsin breakout. "It is a moral and an economic problem, and it requires state investment and state attention to the issues of all people, not just people of color."
+
+I want to explore more on this concept and see if this dataset can provide proof of above statement.
+
+Null Hypothesis (H0): null hypothesis: The percentage of black population (percblack) has no significant effect on the percentage of people below the poverty line
+
+Alternative Hypothesis (H1):There is a significant relationship between the percblack and the percentage of people below the poverty line (percbelowpoverty)
+
+```{r}
+df2<-df %>% count(percwhite, percblack, percbelowpoverty, percchildbelowpovert, county, state) %>% arrange(state, county)
+
+# Scatter plot for both percwhite and percblack against percbelowpoverty
+ggplot(df2, aes(x = percwhite, y = percbelowpoverty, color = "White")) +
+  geom_point() +
+  geom_point(aes(x = percblack, y = percbelowpoverty, color = "Black")) +
+  labs(title = "Scatter Plot: percwhite and percblack vs. percbelowpoverty",
+       x = "Percentage of Population",
+       y = "Percentage Below Poverty Line",
+       color = "Population") +
+  scale_color_manual(values = c("White" = "blue", "Black" = "red"))
+
+```
+
+```{r}
+cor_matrix<-cor(df2[, c("percwhite", "percblack", "percbelowpoverty")])
+cor_matrix
+```
+-   The correlation coefficient between percwhite and percbelowpoverty is approximately -0.377, indicating a moderate negative correlation suggesting that as the percentage of the white population increases, the percentage of people below the poverty line tends to decrease, and vice versa.
+
+-   The correlation coefficient between percblack and percbelowpoverty is approximately 0.218, indicating a positive correlation. This suggests that as the percentage of the black population increases, the percentage of people below the poverty line tends to increase, and vice versa.
+
+Correlation does not imply causation, so while these correlations suggest associations between the variables, it doesn't necessarily mean that one variable causes another.Other factors and confounding variables may influence the relationships, further analysis and statistical can be done to check.
+
+```{r}
+library(corrplot)
+corrplot(cor_matrix, 
+         #method = "color", 
+         #method = "ellipse",
+         method = "number",
+         type = "upper", 
+         tl.col = "black", 
+         tl.srt = 45)
+```
+
+```{r}
+correlation_coefficient <- cor(df$percblack, df$percbelowpoverty)
+print(paste("Correlation Coefficient: ", correlation_coefficient))
+```
+
+The value of 0.218 suggests a relatively weak positive correlation.
+Correlation coefficients range from -1 to 1, where 1 indicates a perfect positive correlation, 0 indicates no correlation, and -1 indicates a perfect negative correlation.
+
+
+```{r}
+# Linear regression model
+model <- lm(percbelowpoverty ~ percblack, data = df)
+summary(model)
+```
+
+-   The coefficient for percblack is 0.21857. This indicates that for every one-unit increase in the percentage of black population, the estimated percentage below the poverty line increases by 0.21857.
+-   The p-value associated with percblack is very low (4.25e-06), there is strong evidence to reject the null hypothesis that the coefficient is zero. The statistically significant p-value for percblack indicates that the relationship is not likely due to random chance.
+-   The R-squared values suggest that the model explains only a small portion of the variability in percbelowpoverty, and other factors may contribute to the observed patterns.This suggests that a significant portion of the variation in poverty rates is not captured by the percentage of black population alone.
+
+
+
+
+
+
+## Hypothesis 2 : Education vs Race
+
+Goal here is to investigate whether there is a statistically significant relationship between the percentage of Black population in a given state and the educational attainment of its population. 
+Do the percentages of high school graduates vary significantly across different racial groups in the Midwest?
+
+Null Hypothesis (H0): The racial composition (specifically, the percentage of Black population - percblack) has no significant effect on the education level of the population (measured by the percentage with a college degree - percollege).
+
+Alternative Hypothesis (H1): The racial composition (percblack) has a significant effect on the education level of the population (percollege).
+```{r}
+lm_blk <- lm(percollege ~ percblack, data = df)
+summary(lm_blk)
+```
+```{r}
+# Visualize percblack vs percollege
+ggplot(midwest, aes(x = percblack, y = percollege)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "grey") +
+  labs(title = "Relationship between Percentage of Black Population and College Education",
+       x = "Percentage of Black Population",
+       y = "Percentage with College Education") +
+  theme_minimal()
+
+```
+
+The model here shows significant positive relationship between the percentage of Black population and the percentage of college graduates. However, the overall explanatory power of the model is relatively low, as indicated by the low R-squared values.  
+
+```{r}
+lm_wht <- lm(percollege ~ percwhite, data = df)
+summary(lm_wht)
+```
+The results suggest that the percentage of White population (percwhite) has some effect on the percentage with a college degree. However, the R-squared value is relatively low.
+
+```{r}
+ggplot(midwest, aes(x = percwhite, y = percollege)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "grey") +
+  labs(title = "Relationship between Percentage of White Population and College Education",
+       x = "Percentage of White Population",
+       y = "Percentage with College Education") +
+  theme_minimal()
+```
+
+```{r}
+
+lm_result <- lm(percollege ~ percwhite + percblack, data = df)
+summary(lm_result)
+```
+The results suggest that, when considering both percwhite and percblack together, the percentage of Black population (percblack) has a significant effect on the percentage with a college degree, while the percentage of White population (percwhite) does not show a significant effect. However, the R-squared value is still relatively low.
+
+```{r}
+ggplot(midwest, aes(x = percwhite, y = perchsd)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "grey") +
+  labs(title = "Relationship between Percentage of White Population and school ed",
+       x = "Percentage of White Population",
+       y = "Percentage with School Education") +
+  theme_minimal()
+```
+```{r}
+ggplot(midwest, aes(x = percblack, y = perchsd)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "grey") +
+  labs(title = "Relationship between Percentage of Black Population and school ed",
+       x = "Percentage of Black Population",
+       y = "Percentage with School Education") +
+  theme_minimal()
+```
+
+
+# Conclusion:
+
+
+## Conclusion 1: Race vs Poverty
+
+-   States with a higher percentage of Black population tend to have higher poverty rates.
+Wisconsin (WI) stands out with the highest mean percentage of the "other" racial group but comparatively lower poverty rate
+-   Linear modeling shows  significant positive relationship between the percentage of Black population (percblack) and the percentage of people below the poverty line (percbelowpoverty).
+On average, a one-unit increase in percblack is associated with a 0.21857 increase in percbelowpoverty.But explanatory power of the model is low, with an R-squared of 0.04751.
+
+## Conclusion 2: Race vs Education
+
+Relationship between race and education is explored through the percentage of Black population (percblack) and its impact on two education-related variables: the percentage of high school graduates (perchsd) and the percentage of college graduates (percollege).
+-   perchsd linear modeling suggests that the percentage of Black population (percblack) does not have a significant effect.
+-   The analysis of relationship between race and education is complex. Considering the interplay between different racial groups (e.g., Black and White populations) is important when examining the percentage of college graduates.
+-  positive relationship between the percentage of Black population (percblack) and the percentage of individuals with a college degree (percollege).(R square is low)
+-   negative relationship between the percentage of White population (percwhite) and the percentage of individuals with a college degree (percollege).(R square is low)
+
+
+# To note:
+
+Other Influencing Factors: Poverty rates are influenced by a myriad of factors, including economic conditions, education, employment opportunities, government policies, and more. The model does not include these additional factors, and their omission can limit the model's ability to fully explain the observed patterns.
+
+Correlation vs. Causation: While there is a statistically significant positive correlation between the percentage of black population and poverty rates, correlation does not imply causation. The model does not establish a causal relationship between percblack and percbelowpoverty.
+
+Omitted Variable Bias: The model may suffer from omitted variable bias, where important variables that influence poverty rates are not included. The exclusion of relevant variables can lead to inaccurate and biased estimates of the coefficients.
+
+# Application:
+
+Investigating the distribution of resources and opportunities among racial groups is crucial for promoting social equity and justice.
+Understanding disparities in income, education, and poverty levels can help identify areas that may require targeted interventions.
+
+Findings from this exploration can inform the development of targeted policies and programs aimed at reducing disparities and promoting inclusivity.
+Policymakers can use the insights gained to make interventions and develop policies, programs targeting specific groups/communitites.
+
+Communities can benefit from a better understanding of the socioeconomic landscape.
+Identifying strengths and challenges within different racial groups allows for more informed community engagement and empowerment initiatives.
+
+This exploration contributes to the broader understanding of regional disparities and adds valuable insights to the existing body of literature on socio-economic factors in the Midwest.
